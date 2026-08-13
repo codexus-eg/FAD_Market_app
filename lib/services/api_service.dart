@@ -393,6 +393,66 @@ class ApiService {
     );
   }
 
+  static Future<Customer> loginAbdoDirect({
+    required String phone,
+    required String deviceId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/customer_abdo_login.php');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: jsonEncode({
+        'phone': phone,
+        'device_id': deviceId,
+      }),
+    );
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded['success'] != true) {
+      throw Exception(decoded['message'] ?? 'Login failed');
+    }
+
+    return Customer.fromJson(
+      Map<String, dynamic>.from(decoded['customer']),
+    );
+  }
+
+
+  static Future<Customer> loginGooglePlayReview({
+    required String phone,
+    required String code,
+    required String deviceId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/customer_review_login.php');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: jsonEncode({
+        'phone': phone,
+        'code': code,
+        'device_id': deviceId,
+      }),
+    );
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded['success'] != true) {
+      throw Exception(decoded['message'] ?? 'Review login failed');
+    }
+
+    return Customer.fromJson(
+      Map<String, dynamic>.from(decoded['customer']),
+    );
+  }
+
+
   static Future<Customer> loginCustomer({
     required String phone,
     required String deviceId,

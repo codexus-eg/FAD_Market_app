@@ -109,7 +109,7 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FAD-Market-AAB-v1.0.2-code45
+          name: FAD-Market-AAB-v1.0.4-code47
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30

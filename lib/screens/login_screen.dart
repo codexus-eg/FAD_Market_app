@@ -19,6 +19,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const String _googlePlayReviewPhone = '12345678';
+  static const String _abdoDirectPhone = '249912345678';
   final TextEditingController _loginController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
@@ -101,6 +103,33 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      if (value == _abdoDirectPhone) {
+        final customer = await ApiService.loginAbdoDirect(
+          phone: value,
+          deviceId: deviceId,
+        );
+
+        await CustomerSession.saveCustomer(customer);
+
+        if (!mounted) return;
+        Navigator.pop(context, true);
+        return;
+      }
+
+      if (value == _googlePlayReviewPhone) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _otpSent = true;
+          _pendingPhone = value;
+          _otpToken = '';
+          _verificationToken = '';
+          _otpController.clear();
+        });
+        _showMessage(tr('أدخل كود المراجعة', 'Enter the review code'));
+        return;
+      }
+
       final otp = await ApiService.requestWhatsAppOtp(
         phone: value,
         deviceId: deviceId,
@@ -144,6 +173,20 @@ class _LoginScreenState extends State<LoginScreen> {
     final deviceId = await CustomerSession.getOrCreateDeviceId();
 
     try {
+      if (_pendingPhone == _googlePlayReviewPhone) {
+        final customer = await ApiService.loginGooglePlayReview(
+          phone: _pendingPhone,
+          code: code,
+          deviceId: deviceId,
+        );
+
+        await CustomerSession.saveCustomer(customer);
+
+        if (!mounted) return;
+        Navigator.pop(context, true);
+        return;
+      }
+
       final result = await ApiService.verifyWhatsAppOtp(
         phone: _pendingPhone,
         deviceId: deviceId,
