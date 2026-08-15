@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../models/customer.dart';
 import '../services/api_service.dart';
+import '../services/cart_service.dart';
 import '../services/customer_session.dart';
 import 'location_picker_screen.dart';
 
@@ -31,6 +32,7 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
   Customer? _customer;
   bool _loading = true;
   bool _saving = false;
+  bool _deleting = false;
   bool _otpSent = false;
   String _otpToken = '';
   String _verificationToken = '';
@@ -313,6 +315,100 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
     }
   }
 
+
+  Future<void> _confirmDeleteAccount() async {
+    if (_saving || _deleting) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: AppController.direction,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    tr('حذف الحساب نهائياً؟', 'Permanently delete account?'),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              tr(
+                'سيتم حذف حسابك وبيانات الملف الشخصي والمحادثات وطلبات الصيانة المرتبطة بالحساب، ثم سيتم تسجيل خروجك. قد نحتفظ بسجلات معاملات محدودة بعد إزالة هويتك عندما تكون مطلوبة للمحاسبة أو الالتزامات القانونية. لا يمكن التراجع عن حذف الحساب.',
+                'Your account, profile data, chats, and account-linked maintenance requests will be deleted and you will be signed out. Limited transaction records may be retained after your identity is removed when required for accounting or legal obligations. Account deletion cannot be undone.',
+              ),
+              style: const TextStyle(height: 1.5, fontWeight: FontWeight.w600),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(tr('إلغاء', 'Cancel')),
+              ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.delete_forever_rounded),
+                label: Text(
+                  tr('حذف الحساب', 'Delete Account'),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    final customer = _customer ?? await CustomerSession.getCustomer();
+    if (customer == null) {
+      if (!mounted) return;
+      _showMessage(tr('يرجى تسجيل الدخول أولاً', 'Please login first'), success: false);
+      return;
+    }
+
+    setState(() => _deleting = true);
+
+    try {
+      final deviceId = await CustomerSession.getOrCreateDeviceId();
+      await ApiService.deleteCustomerAccount(
+        authToken: customer.authToken,
+        deviceId: deviceId,
+      );
+
+      await CustomerSession.clearCustomer();
+      await CartService.clear();
+
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      _showMessage(
+        tr('تم حذف الحساب بنجاح', 'Account deleted successfully'),
+        success: true,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      _showMessage(
+        e.toString().replaceFirst('Exception: ', ''),
+        success: false,
+      );
+    }
+  }
+
   void _showMessage(String message, {required bool success}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -468,7 +564,7 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                                   ),
                                   const SizedBox(height: 14),
                                   OutlinedButton.icon(
-                                    onPressed: _saving ? null : _pickLocation,
+                                    onPressed: (_saving || _deleting) ? null : _pickLocation,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: CustomerSettingsScreen.goldColor,
                                       side: BorderSide(color: CustomerSettingsScreen.goldColor.withOpacity(0.6)),
@@ -510,7 +606,7 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                                   SizedBox(
                                     height: 52,
                                     child: ElevatedButton.icon(
-                                      onPressed: _saving
+                                      onPressed: (_saving || _deleting)
                                           ? null
                                           : (_otpSent && _whatsappChanged
                                               ? _verifyOtpAndSave
@@ -538,6 +634,78 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                                             : (_whatsappChanged
                                                 ? tr('إرسال رمز التحقق', 'Send OTP')
                                                 : tr('حفظ التعديلات', 'Save Changes')),
+                                        style: const TextStyle(fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.045),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Colors.redAccent.withOpacity(0.30)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          tr('حذف الحساب', 'Delete Account'),
+                                          style: const TextStyle(
+                                            color: Colors.redAccent,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 17,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    tr(
+                                      'يمكنك حذف حسابك نهائياً من هنا. سيتم حذف بيانات الحساب الشخصية وتسجيل خروجك من التطبيق.',
+                                      'You can permanently delete your account here. Your personal account data will be removed and you will be signed out.',
+                                    ),
+                                    style: TextStyle(
+                                      color: CustomerSettingsScreen.darkColor.withOpacity(0.68),
+                                      height: 1.45,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  SizedBox(
+                                    height: 50,
+                                    child: OutlinedButton.icon(
+                                      onPressed: (_saving || _deleting) ? null : _confirmDeleteAccount,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.redAccent,
+                                        side: const BorderSide(color: Colors.redAccent, width: 1.3),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                      icon: _deleting
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.redAccent,
+                                              ),
+                                            )
+                                          : const Icon(Icons.delete_forever_rounded),
+                                      label: Text(
+                                        _deleting
+                                            ? tr('جاري حذف الحساب...', 'Deleting account...')
+                                            : tr('حذف الحساب نهائياً', 'Permanently Delete Account'),
                                         style: const TextStyle(fontWeight: FontWeight.w900),
                                       ),
                                     ),

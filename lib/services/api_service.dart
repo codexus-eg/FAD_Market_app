@@ -532,6 +532,41 @@ class ApiService {
   }
 
 
+  static Future<void> deleteCustomerAccount({
+    required String authToken,
+    required String deviceId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/customer_delete.php');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: jsonEncode({
+        'auth_token': authToken,
+        'device_id': deviceId,
+      }),
+    );
+
+    Map<String, dynamic> decoded;
+    try {
+      final raw = jsonDecode(response.body);
+      decoded = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+    } catch (_) {
+      throw Exception('Could not delete account');
+    }
+
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        decoded['success'] != true) {
+      throw Exception(decoded['message'] ?? 'Could not delete account');
+    }
+  }
+
+
   static Future<Customer> getCurrentCustomer({
     required String authToken,
     required String deviceId,
