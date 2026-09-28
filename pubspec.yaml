@@ -2,9 +2,9 @@ name: fad_cnc_app
 description: FAD Market mobile application.
 publish_to: "none"
 
-version: 1.0.0+2
+version: 1.1.0+3
 environment:
-  sdk: ^3.0.0
+  sdk: ^3.5.0
 
 dependencies:
   flutter:
@@ -17,22 +17,25 @@ dependencies:
   geolocator: ^10.1.0
   geocoding: ^3.0.0
   file_picker: ^8.1.2
+  image_picker: ^1.1.2
+  record: 6.2.1
+  audioplayers: 6.6.0
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^4.0.0
-  flutter_launcher_icons: "^0.13.1"
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/fce_logo.jpeg
-
-flutter_icons:
-  android: true
-  ios: true
-  image_path: "assets/images/fce_logo.jpeg"
-  remove_alpha_ios: true
+    - assets/ai_assistant/fce_ai_frame_1.png
+    - assets/ai_assistant/fce_ai_frame_2.png
+    - assets/ai_assistant/fce_ai_frame_3.png
+    - assets/ai_assistant/fce_ai_frame_4.png
+    - assets/ai_assistant/fce_ai_frame_5.png
+    - assets/ai_assistant/fce_ai_frame_6.png

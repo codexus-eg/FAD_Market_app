@@ -13,6 +13,7 @@ import '../models/product_type.dart';
 import '../services/api_service.dart';
 import '../services/cart_service.dart';
 import '../services/customer_session.dart';
+import '../services/ai_assistant_service.dart';
 import '../widgets/cart_icon_button.dart';
 import '../widgets/currency_selector_button.dart';
 import '../widgets/fit_one_line_text.dart';
@@ -27,6 +28,8 @@ import 'offers_screen.dart';
 import 'product_details_screen.dart';
 import 'products_screen.dart';
 import 'register_screen.dart';
+import 'ai_maintenance_screen.dart';
+import '../widgets/ai_floating_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadingCustomer = true;
   bool _loadingEmployee = true;
   int _employeeTaskCount = 0;
+  AiAppConfig _aiConfig = AiAppConfig.defaults();
 
   @override
   void initState() {
@@ -58,12 +62,19 @@ class _HomeScreenState extends State<HomeScreen> {
     _futureOffers = ApiService.getOffers();
     _loadCustomer();
     _loadEmployee();
+    _loadAiConfig();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAiConfig() async {
+    final config = await AiAssistantService.getAppConfig();
+    if (!mounted) return;
+    setState(() => _aiConfig = config);
   }
 
   Future<void> _loadCustomer() async {
@@ -268,6 +279,136 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const CustomerChatScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openAiAssistant() async {
+    final latestConfig = await AiAssistantService.getAppConfig();
+    if (!mounted) return;
+    setState(() => _aiConfig = latestConfig);
+
+    if (!latestConfig.enabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('المساعد الذكي غير متاح حالياً.', 'AI assistant is currently unavailable.'))),
+      );
+      return;
+    }
+
+    final loggedIn = await CustomerSession.isLoggedIn();
+    if (!mounted) return;
+    if (!loggedIn) {
+      final action = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return Directionality(
+            textDirection: AppController.direction,
+            child: SafeArea(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x33000000), blurRadius: 26, offset: Offset(0, 10)),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF07192D),
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/ai_assistant/fce_ai_frame_1.png',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      tr('أنشئ حساب أولاً', 'Create an account first'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: HomeScreen.darkColor),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(
+                        'مساعد FCE الذكي متاح للمستخدمين المسجلين فقط. أنشئ حساباً أو سجل الدخول للبدء.',
+                        'FCE AI Assistant is available to registered users only. Create an account or sign in to continue.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: HomeScreen.darkColor.withOpacity(.68), height: 1.45),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(sheetContext, 'register'),
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
+                        label: Text(tr('إنشاء حساب', 'Create account')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: HomeScreen.goldColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(sheetContext, 'login'),
+                        icon: const Icon(Icons.login_rounded),
+                        label: Text(tr('تسجيل الدخول', 'Sign in')),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: HomeScreen.darkColor,
+                          side: const BorderSide(color: HomeScreen.darkColor),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+      if (!mounted) return;
+      if (action == 'register') {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+        await _loadCustomer();
+      } else if (action == 'login') {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+        await _loadCustomer();
+      }
+      if (!mounted) return;
+      final nowLoggedIn = await CustomerSession.isLoggedIn();
+      if (!mounted) return;
+      if (nowLoggedIn) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AiMaintenanceScreen(appConfig: latestConfig)),
+        );
+      }
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiMaintenanceScreen(appConfig: latestConfig),
       ),
     );
   }
@@ -545,6 +686,17 @@ class _HomeScreenState extends State<HomeScreen> {
           textDirection: AppController.direction,
           child: Scaffold(
             backgroundColor: HomeScreen.bgColor,
+            floatingActionButton: _aiConfig.enabled
+                ? AiFloatingButton(
+                    onTap: _openAiAssistant,
+                    messages: AppController.isArabic
+                        ? _aiConfig.teaserMessagesAr
+                        : _aiConfig.teaserMessagesEn,
+                    animationCycleMs: _aiConfig.animationCycleMs,
+                    teaserIntervalMs: _aiConfig.teaserIntervalMs,
+                  )
+                : null,
+            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
             body: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -563,6 +715,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           await _futureTypes;
                           await _loadCustomer();
                           await _loadEmployee();
+                          await _loadAiConfig();
                         },
                         child: CustomScrollView(
                           slivers: [
